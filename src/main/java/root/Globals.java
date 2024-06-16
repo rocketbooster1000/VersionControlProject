@@ -10,7 +10,7 @@ public final class Globals {
     public static int HEIGHT = 600;
 
     public static final int CONTROL_WIDTH = 300;
-    public static final int CONTROL_HEIGHT = 100;
+    public static final int CONTROL_HEIGHT = 50;
     
     public static double REQUESTED_FORWARD = 0;
     public static double REQUESTED_STRAFE = 0;
@@ -25,6 +25,7 @@ public final class Globals {
     public static boolean CHANGE_REQUESTED = false;
 
     public static double MAX_ROTATION_SPEED = Math.PI / 180;
+    public static double MAX_VELOCITY = 3;
 
     public static double CURRENT_HEADING = 0;
     public static double BUFFER_HEADING = 0;

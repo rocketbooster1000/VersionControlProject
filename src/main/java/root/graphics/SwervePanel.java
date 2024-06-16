@@ -11,11 +11,12 @@ import javax.swing.KeyStroke;
 import root.Globals;
 import root.Globals.KeyBindingActions;
 import root.Globals.KeyBindingStrings;
+import root.model.SwerveBase;
 import root.util.Animatable;
 
 public class SwervePanel extends JPanel implements ActionListener{
     private Animatable base;
-    private ControlPanel rotationControlPanel, headingControlPanel;
+    private ControlPanel rotationControlPanel, headingControlPanel, veolictyControlPanel;
     
     public SwervePanel(){
         super();
@@ -45,13 +46,29 @@ public class SwervePanel extends JPanel implements ActionListener{
         this.getActionMap().put(KeyBindingStrings.REQUEST_STRAFE_RIGHT, KeyBindingActions.STRAFE_RIGHT_ACTION);
         this.getActionMap().put(KeyBindingStrings.REQUEST_ROTATION_LEFT, KeyBindingActions.TURN_LEFT_ACTION);
         this.getActionMap().put(KeyBindingStrings.REQUEST_ROTATION_RIGHT, KeyBindingActions.TURN_RIGHT_ACTION);
-
+        
         this.getActionMap().put(KeyBindingStrings.REQUEST_RELEASE_FORWARD, KeyBindingActions.RELEASE_FORWARD_ACTION);
         this.getActionMap().put(KeyBindingStrings.REQUEST_RELEASE_STRAFE, KeyBindingActions.RELEASE_STRAFE_ACTION);
         this.getActionMap().put(KeyBindingStrings.REQUEST_RELEASE_ROTATION, KeyBindingActions.RELEASE_ROTATION_ACTION);
         
         this.getActionMap().put(KeyBindingStrings.REQUEST_RESET_HEADING, KeyBindingActions.RESET_HEADING_ACTION);
         this.getActionMap().put(KeyBindingStrings.REQUEST_TOGGLE_HEADING, KeyBindingActions.TOGGLE_HEADING_ACTION);
+        
+        this.veolictyControlPanel = new ControlPanel(
+            "Velocity",
+            String.format("%,.1f", Globals.MAX_VELOCITY),
+            () -> {},
+            (e) -> {
+                try{
+                    Globals.MAX_VELOCITY = Double.parseDouble(veolictyControlPanel.getText());
+                  } catch (Exception exception){}
+                  
+                veolictyControlPanel.setText(String.format("%.1f", Globals.MAX_VELOCITY));
+            },
+            Globals.CONTROL_WIDTH,
+            Globals.CONTROL_HEIGHT,
+            2 * Globals.CONTROL_HEIGHT
+        );
 
         this.rotationControlPanel = new ControlPanel(
             "Rotation Speed",
@@ -65,17 +82,17 @@ public class SwervePanel extends JPanel implements ActionListener{
                 rotationControlPanel.setText(String.format("%.1f", Math.toDegrees(Globals.MAX_ROTATION_SPEED)));
             },
             Globals.CONTROL_WIDTH,
-            Globals.CONTROL_HEIGHT / 2,
-            Globals.CONTROL_HEIGHT / 2
+            Globals.CONTROL_HEIGHT,
+            Globals.CONTROL_HEIGHT
         );
 
         headingControlPanel = new ControlPanel(
             "Heading",
-            SwerveBaseAnimatable.getFormatHeading(Globals.CURRENT_HEADING),
+            SwerveBase.getFormatHeading(Globals.CURRENT_HEADING),
             () ->{
                 Globals.HEADING_CHANGING = (Globals.HEADING_CHANGING) ? true : headingControlPanel.isInFocus();
                 if (!Globals.HEADING_CHANGING && !headingControlPanel.isInFocus()){
-                    headingControlPanel.setText(SwerveBaseAnimatable.getFormatHeading(Globals.CURRENT_HEADING));
+                    headingControlPanel.setText(SwerveBase.getFormatHeading(Globals.CURRENT_HEADING));
                     
                 }
                 
@@ -89,12 +106,16 @@ public class SwervePanel extends JPanel implements ActionListener{
                 } catch (Exception ex){System.out.println("exception");}
             },
             Globals.CONTROL_WIDTH,
-            Globals.CONTROL_HEIGHT / 2,
+            Globals.CONTROL_HEIGHT,
             0
         );
 
+
+
+
         this.add(rotationControlPanel, JLayeredPane.PALETTE_LAYER);
         this.add(headingControlPanel, JLayeredPane.PALETTE_LAYER);
+        this.add(veolictyControlPanel, JLayeredPane.PALETTE_LAYER);
     }
 
     @Override
@@ -105,6 +126,7 @@ public class SwervePanel extends JPanel implements ActionListener{
 
         this.rotationControlPanel.refresh();
         this.headingControlPanel.refresh();
+        this.veolictyControlPanel.refresh();
     }
 
     @Override

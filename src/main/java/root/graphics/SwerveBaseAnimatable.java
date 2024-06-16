@@ -13,6 +13,8 @@ public class SwerveBaseAnimatable extends SwerveBase implements Animatable{
     private static volatile Animatable instance = null;
     private SwerveModuelWrapperAnimatable wrapperFl, wrapperFR, wrapperBL, wrapperBR;
 
+    private Vector[] modulePositionVectors = new Vector[4];
+
     public SwerveBaseAnimatable(){
         super();
         this.wrapperFl = new SwerveModuelWrapperAnimatable(this.fL);
@@ -25,57 +27,30 @@ public class SwerveBaseAnimatable extends SwerveBase implements Animatable{
     @Override
     public void drive(double forward, double strafe, double rot){
         super.drive(forward, strafe, rot, false);
-        
     }
 
     @Override
     public void draw(Graphics g){
         g.setColor(Color.RED);
         if (Globals.FIELD_ORIENTED){
-            Vector lFLoc = new Vector(new VectorRectangular(-Globals.SWERVE_WIDTH / 2, -Globals.SWERVE_HEIGHT / 2));
-            Vector rFLoc = new Vector(new VectorRectangular(Globals.SWERVE_WIDTH / 2, -Globals.SWERVE_HEIGHT / 2));
-            Vector lBLoc = new Vector(new VectorRectangular(-Globals.SWERVE_WIDTH / 2, Globals.SWERVE_HEIGHT / 2));
-            Vector rBLoc = new Vector(new VectorRectangular(Globals.SWERVE_WIDTH / 2, Globals.SWERVE_HEIGHT / 2));
-            
-            lFLoc = lFLoc.rotate(2 * Math.PI - this.getHeading());
-            rFLoc = rFLoc.rotate(2 * Math.PI - this.getHeading());
-            lBLoc = lBLoc.rotate(2 * Math.PI - this.getHeading());
-            rBLoc = rBLoc.rotate(2 * Math.PI - this.getHeading());
-            
-            g.setColor(Color.GREEN);
-            g.drawLine((int)Math.round(lFLoc.x) + Globals.WIDTH / 2, (int)Math.round(lFLoc.y) + Globals.HEIGHT / 2, (int)Math.round(rFLoc.x + Globals.WIDTH / 2), (int)Math.round(rFLoc.y) + Globals.HEIGHT / 2);
-
-            g.setColor(Color.RED);
-            g.drawLine((int)Math.round(rFLoc.x) + Globals.WIDTH / 2, (int)Math.round(rFLoc.y) + Globals.HEIGHT / 2, (int)Math.round(rBLoc.x) + Globals.WIDTH / 2, (int)Math.round(rBLoc.y) + Globals.HEIGHT / 2);
-            g.drawLine((int)Math.round(rBLoc.x) + Globals.WIDTH / 2, (int)Math.round(rBLoc.y) + Globals.HEIGHT / 2, (int)Math.round(lBLoc.x) + Globals.WIDTH / 2, (int)Math.round(lBLoc.y) + Globals.HEIGHT / 2);
-            g.drawLine((int)Math.round(lBLoc.x) + Globals.WIDTH / 2, (int)Math.round(lBLoc.y) + Globals.HEIGHT / 2, (int)Math.round(lFLoc.x) + Globals.WIDTH / 2, (int)Math.round(lFLoc.y) + Globals.HEIGHT / 2);
-
-            this.wrapperFl.drawDynamic(g, (int)Math.round(lFLoc.x) + Globals.WIDTH / 2, (int)Math.round(lFLoc.y) + Globals.HEIGHT / 2, Globals.CURRENT_HEADING);
-            this.wrapperFR.drawDynamic(g, (int)Math.round(rFLoc.x) + Globals.WIDTH / 2, (int)Math.round(rFLoc.y) + Globals.HEIGHT / 2, Globals.CURRENT_HEADING);
-            this.wrapperBL.drawDynamic(g, (int)Math.round(lBLoc.x) + Globals.WIDTH / 2, (int)Math.round(lBLoc.y) + Globals.HEIGHT / 2, Globals.CURRENT_HEADING);
-            this.wrapperBR.drawDynamic(g, (int)Math.round(rBLoc.x) + Globals.WIDTH / 2, (int)Math.round(rBLoc.y) + Globals.HEIGHT / 2, Globals.CURRENT_HEADING);
-
+            this.drawFieldOriented(g);
         } else {
-            g.drawRect(Globals.WIDTH / 2 - Globals.SWERVE_WIDTH / 2, Globals.HEIGHT / 2 - Globals.SWERVE_HEIGHT / 2, Globals.SWERVE_WIDTH, Globals.SWERVE_HEIGHT);
-            this.wrapperFl.draw(g);
-            this.wrapperFR.draw(g);
-            this.wrapperBL.draw(g);
-            this.wrapperBR.draw(g);
-
+            this.drawRobotOriented(g);
         }
-        
-        
     }
 
     @Override
     public void update(){
         this.setMaxRotation(Globals.MAX_ROTATION_SPEED);
+        this.setMaxVelocity(Globals.MAX_VELOCITY);
+
         if (Globals.CHANGE_REQUESTED){
             Globals.CURRENT_HEADING = Globals.BUFFER_HEADING;
             this.setHeading(Globals.CURRENT_HEADING);
             Globals.CHANGE_REQUESTED = false;
             Globals.HEADING_CHANGING = false;
         }
+        
         this.drive(Globals.REQUESTED_FORWARD, Globals.REQUESTED_STRAFE, Globals.REQUESTED_ROTATION, true);
     
         if (Globals.RESET_REQUESTED){
@@ -87,11 +62,73 @@ public class SwerveBaseAnimatable extends SwerveBase implements Animatable{
         else Globals.CURRENT_HEADING = 0;
     }
 
-    public static String getFormatHeading(double heading){
-        if (Double.compare(heading, 0) == 0){
-            return "" + 0.0;
+    @Override
+    protected void updateOdometry(){
+        if (!fightingWallX()) updateOdometryX();
+        if (!fightingWallY()) updateOdometryY();
+    }
+
+    private boolean withinFrame(){
+        for (Vector v : this.modulePositionVectors){
+            if (Math.round(v.x) + this.x <= 0 || Math.round(v.x) + this.x >= Globals.WIDTH
+                || Math.round(v.y) + this.y <= 0 || Math.round(v.y) + this.y >= Globals.HEIGHT)
+                return false;
         }
-        return String.format("%,.1f", Math.toDegrees(2 * Math.PI - heading));
+        return true;
+    }
+
+    private boolean fightingWallX(){
+        for (Vector v : this.modulePositionVectors){
+            if (Math.round(v.x) + this.x <= 0 && coeffX.get(0) < 0) return true;
+            if (Math.round(v.x) + this.x >= Globals.WIDTH && coeffX.get(0) > 0) return true;
+        }
+        return false;
+    }
+    
+    private boolean fightingWallY(){
+        for (Vector v : this.modulePositionVectors){
+            if (Math.round(v.y) + this.y <= 0 && coeffY.get(0) > 0) return true;
+            if (Math.round(v.y) + this.y >= Globals.HEIGHT && coeffY.get(0) < 0) return true;
+        }
+        return false;
+    }
+
+    private void drawFieldOriented(Graphics g){
+        Vector lFLoc = new Vector(new VectorRectangular(-Globals.SWERVE_WIDTH / 2, -Globals.SWERVE_HEIGHT / 2));
+        Vector rFLoc = new Vector(new VectorRectangular(Globals.SWERVE_WIDTH / 2, -Globals.SWERVE_HEIGHT / 2));
+        Vector lBLoc = new Vector(new VectorRectangular(-Globals.SWERVE_WIDTH / 2, Globals.SWERVE_HEIGHT / 2));
+        Vector rBLoc = new Vector(new VectorRectangular(Globals.SWERVE_WIDTH / 2, Globals.SWERVE_HEIGHT / 2));
+        
+        lFLoc = lFLoc.rotate(2 * Math.PI - this.getHeading());
+        rFLoc = rFLoc.rotate(2 * Math.PI - this.getHeading());
+        lBLoc = lBLoc.rotate(2 * Math.PI - this.getHeading());
+        rBLoc = rBLoc.rotate(2 * Math.PI - this.getHeading());
+
+        modulePositionVectors[0] = lFLoc;
+        modulePositionVectors[1] = rFLoc;
+        modulePositionVectors[2] = lBLoc;
+        modulePositionVectors[3] = rFLoc;
+        
+        g.setColor(Color.GREEN);
+        g.drawLine((int)Math.round(lFLoc.x) + (int)(this.x), (int)Math.round(lFLoc.y) + (int)(this.y), (int)Math.round(rFLoc.x + (int)(this.x)), (int)Math.round(rFLoc.y) + (int)(this.y));
+
+        g.setColor(Color.RED);
+        g.drawLine((int)Math.round(rFLoc.x) + (int)(this.x), (int)Math.round(rFLoc.y) + (int)(this.y), (int)Math.round(rBLoc.x) + (int)(this.x), (int)Math.round(rBLoc.y) + (int)(this.y));
+        g.drawLine((int)Math.round(rBLoc.x) + (int)(this.x), (int)Math.round(rBLoc.y) + (int)(this.y), (int)Math.round(lBLoc.x) + (int)(this.x), (int)Math.round(lBLoc.y) + (int)(this.y));
+        g.drawLine((int)Math.round(lBLoc.x) + (int)(this.x), (int)Math.round(lBLoc.y) + (int)(this.y), (int)Math.round(lFLoc.x) + (int)(this.x), (int)Math.round(lFLoc.y) + (int)(this.y));
+
+        this.wrapperFl.drawDynamic(g, (int)Math.round(lFLoc.x) + (int)(this.x), (int)Math.round(lFLoc.y) + (int)(this.y), Globals.CURRENT_HEADING);
+        this.wrapperFR.drawDynamic(g, (int)Math.round(rFLoc.x) + (int)(this.x), (int)Math.round(rFLoc.y) + (int)(this.y), Globals.CURRENT_HEADING);
+        this.wrapperBL.drawDynamic(g, (int)Math.round(lBLoc.x) + (int)(this.x), (int)Math.round(lBLoc.y) + (int)(this.y), Globals.CURRENT_HEADING);
+        this.wrapperBR.drawDynamic(g, (int)Math.round(rBLoc.x) + (int)(this.x), (int)Math.round(rBLoc.y) + (int)(this.y), Globals.CURRENT_HEADING);
+    }
+
+    private void drawRobotOriented(Graphics g){
+        g.drawRect(Globals.WIDTH / 2 - Globals.SWERVE_WIDTH / 2, (int)(this.y) - Globals.SWERVE_HEIGHT / 2, Globals.SWERVE_WIDTH, Globals.SWERVE_HEIGHT);
+        this.wrapperFl.draw(g);
+        this.wrapperFR.draw(g);
+        this.wrapperBL.draw(g);
+        this.wrapperBR.draw(g);
     }
 
     public static Animatable getInstance(){
